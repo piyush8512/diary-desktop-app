@@ -1,54 +1,38 @@
-import { useMemo, useState } from "react";
-import { AppHeader } from "./components/AppHeader";
-import { Onboarding } from "./components/Onboarding";
-import { loadProfile, resetProfile, type UserProfile } from "./lib/storage";
-
-const themeClassMap: Record<UserProfile["theme"], string> = {
-  default: "theme-default",
-  couple: "theme-couple",
-  friends: "theme-friends",
-  dream: "theme-dream",
-};
+import { useState } from "react";
+import Sidebar from "./components/Sidebar";
+import Calendar from "./components/Calendar";
+import Timeline from "./components/Timeline";
 
 const App = () => {
-  const [profile, setProfile] = useState<UserProfile>(() => loadProfile());
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const appThemeClass = useMemo(() => {
-    return themeClassMap[profile.theme] ?? "theme-default";
-  }, [profile.theme]);
-
-  const handleReset = () => {
-    setProfile(resetProfile());
-  };
-
-  if (!profile.onboarded) {
-    return (
-      <div className={`app-shell ${appThemeClass}`}>
-        <Onboarding onDone={setProfile} />
-      </div>
-    );
-  }
+  const [activeView, setActiveView] = useState<"timeline" | "calendar">("calendar");
 
   return (
-    <div className={`app-shell ${appThemeClass}`}>
-      <AppHeader
-        profile={profile}
-        onUpdate={setProfile}
-        onReset={handleReset}
-      />
+    <main className="h-screen overflow-hidden bg-[#efeae2] text-[#4d4338]">
+      <div className="mx-auto flex h-full overflow-hidden rounded-sm border border-[#ddd3c7] bg-[#f4efe7]">
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="absolute inset-0 z-20 bg-[#2b251f]/30 lg:hidden"
+            aria-label="Close sidebar overlay"
+          />
+        )}
 
-      <main className="content-wrap">
-        <section className="journal-card">
-          <h2>Your Journal Space</h2>
-          <p>
-            Welcome back, {profile.name || "Friend"}.
-            {profile.mode === "couple" && profile.partnerName
-              ? ` Writing with ${profile.partnerName}.`
-              : " Start capturing today's moments."}
-          </p>
-        </section>
-      </main>
-    </div>
+        <Sidebar
+          isCollapsed={isSidebarCollapsed}
+		  onNavigate={setActiveView}
+          isMobileOpen={isMobileSidebarOpen}
+          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+		  activeView={activeView}
+        />
+
+        {activeView === "calendar" ? <Calendar /> : <Timeline />}
+      </div>
+    </main>
   );
 };
 
