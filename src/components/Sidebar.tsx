@@ -1,4 +1,14 @@
-import { ArrowLeft, Menu, PenLine, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Image as ImageIcon,
+  Menu,
+  PenLine,
+  Settings,
+  Settings2,
+  UserCircle2,
+  X,
+} from "lucide-react";
 import { monthMoodItems, sidebarNavItems } from "../lib/sidebarData";
 
 type SidebarProps = {
@@ -6,8 +16,10 @@ type SidebarProps = {
   isMobileOpen: boolean;
   onToggleCollapse: () => void;
   onCloseMobile: () => void;
-  activeView: "timeline" | "calendar";
-  onNavigate: (view: "timeline" | "calendar") => void; // Added onNavigate
+  activeView?: "timeline" | "calendar";
+  onNavigate?: (view: "timeline" | "calendar") => void;
+  variant?: "main" | "diary";
+  onBack?: () => void;
 };
 
 type SidebarLogoProps = {
@@ -38,7 +50,64 @@ const Sidebar = ({
   onCloseMobile,
   activeView,
   onNavigate,
+  variant = "main",
+  onBack,
 }: SidebarProps) => {
+  if (variant === "diary") {
+    return (
+      <aside className="hidden w-20 shrink-0 flex-col items-center border-r border-[#efe2d4] bg-[#fff8ef] py-4 lg:flex">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-8 flex h-10 w-10 items-center justify-center rounded-full bg-[#d9a66b] text-white shadow-sm transition hover:brightness-105"
+          aria-label="Back to calendar"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+
+        <div className="flex flex-1 flex-col items-center gap-8  text-[#8a7a6b] justify-center">
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d8c6] bg-white text-[#6d5c4c] transition hover:bg-[#f7f1e8]"
+            aria-label="Calendar overview"
+          >
+            <Calendar className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#e7d8c6] bg-white text-[#d39c68] shadow-[0_3px_12px_rgba(77,67,56,0.05)] transition hover:bg-[#f7f1e8]"
+            aria-label="Diary writing mode"
+          >
+            <PenLine className="h-8 w-8" />
+          </button>
+
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7d8c6] bg-white text-[#6d5c4c] transition hover:bg-[#f7f1e8]"
+            aria-label="Add image"
+          >
+            <ImageIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-auto pb-2">
+          <button
+            type="button"
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#e7d8c6] bg-white shadow-sm"
+            aria-label="Profile"
+          >
+            <img
+              src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80"
+              alt="Profile avatar"
+              className="h-full w-full object-cover"
+            />
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside
       className={[
@@ -90,7 +159,10 @@ const Sidebar = ({
                   type="button"
                   onClick={() => {
                     // Only navigate if it's one of our supported views
-                    if (item.id === "calendar" || item.id === "timeline") {
+                    if (
+                      onNavigate &&
+                      (item.id === "calendar" || item.id === "timeline")
+                    ) {
                       onNavigate(item.id as "timeline" | "calendar");
                     }
                   }}
@@ -112,7 +184,7 @@ const Sidebar = ({
         </ul>
       </nav>
 
-      <div className="mt-auto p-4">
+      <div className="mt-auto p-4 ">
         <button
           type="button"
           className={[
@@ -123,6 +195,17 @@ const Sidebar = ({
         >
           <PenLine className="h-4 w-4" />
           {!isCollapsed && <span>Write Entry</span>}
+        </button>
+               <button
+          type="button"
+          className={[
+            "flex w-full items-center justify-center rounded-full bg-[#c99561] py-3 text-sm font-semibold text-[#fff8ef] shadow-sm transition hover:brightness-95 mt-1",
+            isCollapsed ? "px-0" : "gap-2 px-4",
+          ].join(" ")}
+          title="Write Entry"
+        >
+          <Settings className="h-4 w-4" />
+          {!isCollapsed && <span>Setting</span>}
         </button>
       </div>
     </aside>

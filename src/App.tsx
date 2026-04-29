@@ -6,8 +6,11 @@ import Timeline from "./components/Timeline";
 const App = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDiaryModeOpen, setIsDiaryModeOpen] = useState(false);
 
-  const [activeView, setActiveView] = useState<"timeline" | "calendar">("calendar");
+  const [activeView, setActiveView] = useState<"timeline" | "calendar">(
+    "calendar",
+  );
 
   return (
     <main className="h-screen overflow-hidden bg-[#efeae2] text-[#4d4338]">
@@ -21,16 +24,22 @@ const App = () => {
           />
         )}
 
-        <Sidebar
-          isCollapsed={isSidebarCollapsed}
-		  onNavigate={setActiveView}
-          isMobileOpen={isMobileSidebarOpen}
-          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
-          onCloseMobile={() => setIsMobileSidebarOpen(false)}
-		  activeView={activeView}
-        />
+        {!isDiaryModeOpen && (
+          <Sidebar
+            isCollapsed={isSidebarCollapsed}
+            onNavigate={setActiveView}
+            isMobileOpen={isMobileSidebarOpen}
+            onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+            onCloseMobile={() => setIsMobileSidebarOpen(false)}
+            activeView={activeView}
+          />
+        )}
 
-        {activeView === "calendar" ? <Calendar /> : <Timeline />}
+        {activeView === "calendar" ? (
+          <Calendar onDiaryModeChange={setIsDiaryModeOpen} />
+        ) : (
+          <Timeline />
+        )}
       </div>
     </main>
   );

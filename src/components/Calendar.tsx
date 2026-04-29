@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, UserCircle2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import DiaryWriter from "./DiaryWriter";
 
 type CalendarEntry = {
   date: string;
@@ -9,6 +10,12 @@ type CalendarEntry = {
   image?: string;
   imageLabel?: string;
   dayDot?: string;
+};
+
+export type { CalendarEntry };
+
+type CalendarProps = {
+  onDiaryModeChange?: (isOpen: boolean) => void;
 };
 
 const monthLabels = [
@@ -114,20 +121,23 @@ const getDaysInMonthGrid = (year: number, monthIndex: number) => {
   });
 };
 
-const Calendar = () => {
+const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
   const today = new Date();
   const [viewYear, setViewYear] = useState(2023);
   const [viewMonth, setViewMonth] = useState(9);
   const [selectedDateKey, setSelectedDateKey] = useState("2023-10-05");
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [entries, setEntries] = useState<CalendarEntry[]>(calendarEntries);
 
   const gridDates = useMemo(
     () => getDaysInMonthGrid(viewYear, viewMonth),
     [viewYear, viewMonth],
   );
-
-  const selectedEntry = calendarEntries.find(
-    (entry) => entry.date === selectedDateKey,
+  const selectedDate = useMemo(
+    () => new Date(selectedDateKey),
+    [selectedDateKey],
   );
+  const selectedEntry = entries.find((entry) => entry.date === selectedDateKey);
 
   const goToMonth = (monthOffset: number) => {
     setViewMonth((currentMonth) => {
@@ -148,7 +158,65 @@ const Calendar = () => {
     setViewYear(2023);
     setViewMonth(9);
     setSelectedDateKey("2023-10-05");
+    setIsEditorOpen(false);
+    onDiaryModeChange?.(false);
   };
+
+  const openDiary = (date: Date) => {
+    setSelectedDateKey(formatKey(date));
+    setViewYear(date.getFullYear());
+    setViewMonth(date.getMonth());
+    setIsEditorOpen(true);
+    onDiaryModeChange?.(true);
+  };
+
+  const handleSave = (draft: { title: string; description: string }) => {
+    const title = draft.title.trim();
+    const description = draft.description.trim();
+
+    if (!title && !description) {
+      return;
+    }
+
+    const selectedBase = selectedEntry;
+    const updatedEntry: CalendarEntry = {
+      date: selectedDateKey,
+      title: title || selectedBase?.title || "Untitled entry",
+      description: description || selectedBase?.description || "",
+      accent: selectedBase?.accent ?? "border-[#c9c0ff] bg-[#fffefe]",
+      image: selectedBase?.image,
+      imageLabel: selectedBase?.imageLabel,
+      dayDot: selectedBase?.dayDot ?? "bg-[#b9d4ff]",
+    };
+
+    setEntries((currentEntries) => {
+      const index = currentEntries.findIndex(
+        (entry) => entry.date === selectedDateKey,
+      );
+
+      if (index >= 0) {
+        const nextEntries = [...currentEntries];
+        nextEntries[index] = updatedEntry;
+        return nextEntries;
+      }
+
+      return [...currentEntries, updatedEntry];
+    });
+  };
+
+  if (isEditorOpen) {
+    return (
+      <DiaryWriter
+        selectedDate={selectedDate}
+        selectedEntry={selectedEntry}
+        onBack={() => {
+          setIsEditorOpen(false);
+          onDiaryModeChange?.(false);
+        }}
+        onSave={handleSave}
+      />
+    );
+  }
 
   return (
     <section className="flex-1 h-full overflow-hidden bg-[#f2eee8] p-4">
@@ -215,21 +283,17 @@ const Calendar = () => {
               const key = formatKey(date);
               const isCurrentMonth = date.getMonth() === viewMonth;
               const isSelected = key === selectedDateKey;
-              const entry = calendarEntries.find((item) => item.date === key);
+              const entry = entries.find((item) => item.date === key);
               const isToday = key === formatKey(today);
 
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => {
-                    setSelectedDateKey(key);
-                    setViewYear(date.getFullYear());
-                    setViewMonth(date.getMonth());
-                  }}
+                  onClick={() => openDiary(date)}
                   className={[
                     // FIX: Reduced padding slightly (p-1.5 md:p-2) and adjusted border radius to fit better
-                    "relative flex h-full flex-col overflow-hidden rounded-[1rem] border bg-white p-1.5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(77,67,56,0.08)] md:p-2",
+                    "relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white p-1.5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(77,67,56,0.08)] md:p-2",
                     isCurrentMonth
                       ? "border-[#e3d6c7] text-[#4d4338]"
                       : "border-[#efe6db] text-[#c2b5a6] opacity-60",
