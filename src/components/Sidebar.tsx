@@ -199,7 +199,7 @@ const Sidebar = ({
                <button
           type="button"
           className={[
-            "flex w-full items-center justify-center rounded-full bg-[#c99561] py-3 text-sm font-semibold text-[#fff8ef] shadow-sm transition hover:brightness-95 mt-1",
+            "flex w-full items-center justify-center rounded-full py-3 text-sm font-semibold text-[#5e544a] shadow-sm transition hover:brightness-95 mt-1",
             isCollapsed ? "px-0" : "gap-2 px-4",
           ].join(" ")}
           title="Write Entry"

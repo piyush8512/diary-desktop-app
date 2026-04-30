@@ -1,16 +1,14 @@
-import { ChevronLeft, ChevronRight, UserCircle2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  UserCircle2,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import DiaryWriter from "./DiaryWriter";
-
-type CalendarEntry = {
-  date: string;
-  title: string;
-  description: string;
-  accent: string;
-  image?: string;
-  imageLabel?: string;
-  dayDot?: string;
-};
+import { getAllEntries, initDB, saveEntry } from "../lib/storage";
+import type { CalendarEntry } from "../types/calendar";
 
 export type { CalendarEntry };
 
@@ -34,6 +32,12 @@ const monthLabels = [
 ];
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const stripHtml = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const calendarEntries: CalendarEntry[] = [
   {
@@ -123,11 +127,31 @@ const getDaysInMonthGrid = (year: number, monthIndex: number) => {
 
 const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
   const today = new Date();
-  const [viewYear, setViewYear] = useState(2023);
-  const [viewMonth, setViewMonth] = useState(9);
-  const [selectedDateKey, setSelectedDateKey] = useState("2023-10-05");
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [selectedDateKey, setSelectedDateKey] = useState(formatKey(today));
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [typedDate, setTypedDate] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const [entries, setEntries] = useState<CalendarEntry[]>(calendarEntries);
+
+  useEffect(() => {
+    const loadEntries = async () => {
+      try {
+        await initDB();
+        const storedEntries = await getAllEntries();
+        setEntries(storedEntries.length > 0 ? storedEntries : calendarEntries);
+      } catch (error) {
+        console.error("Failed to load diary entries:", error);
+        setEntries(calendarEntries);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadEntries();
+  }, []);
 
   const gridDates = useMemo(
     () => getDaysInMonthGrid(viewYear, viewMonth),
@@ -154,10 +178,33 @@ const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
     });
   };
 
+  const openDatePicker = () => {
+    setTypedDate("");
+    setIsDatePickerOpen(true);
+  };
+
+  const closeDatePicker = () => {
+    setIsDatePickerOpen(false);
+  };
+
+  const jumpToTypedDate = () => {
+    const parsedDate = new Date(typedDate);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return;
+    }
+
+    setSelectedDateKey(formatKey(parsedDate));
+    setViewYear(parsedDate.getFullYear());
+    setViewMonth(parsedDate.getMonth());
+    setIsDatePickerOpen(false);
+  };
+
   const handleToday = () => {
-    setViewYear(2023);
-    setViewMonth(9);
-    setSelectedDateKey("2023-10-05");
+    const now = new Date();
+    setViewYear(now.getFullYear());
+    setViewMonth(now.getMonth());
+    setSelectedDateKey(formatKey(now));
     setIsEditorOpen(false);
     onDiaryModeChange?.(false);
   };
@@ -170,7 +217,11 @@ const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
     onDiaryModeChange?.(true);
   };
 
-  const handleSave = (draft: { title: string; description: string }) => {
+  const handleSave = async (draft: {
+    title: string;
+    description: string;
+    moodDrawing?: string | null;
+  }) => {
     const title = draft.title.trim();
     const description = draft.description.trim();
 
@@ -187,7 +238,14 @@ const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
       image: selectedBase?.image,
       imageLabel: selectedBase?.imageLabel,
       dayDot: selectedBase?.dayDot ?? "bg-[#b9d4ff]",
+      moodDrawing: draft.moodDrawing || selectedBase?.moodDrawing,
     };
+
+    try {
+      await saveEntry(updatedEntry);
+    } catch (error) {
+      console.error("Failed to save diary entry:", error);
+    }
 
     setEntries((currentEntries) => {
       const index = currentEntries.findIndex(
@@ -218,8 +276,89 @@ const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
     );
   }
 
+  if (isLoading) {
+    return (
+      <section className="flex-1 h-full overflow-hidden bg-[#f2eee8] p-4 flex items-center justify-center">
+        <div className="text-center text-[#8a7f72]">
+          <p className="font-[Georgia,serif] text-lg">Loading your diary...</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="flex-1 h-full overflow-hidden bg-[#f2eee8] p-4">
+      {isDatePickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={closeDatePicker}
+        >
+          <div
+            className="w-full max-w-md rounded-[1.75rem] border border-[#ddd1c2] bg-[#fffaf3] p-4 shadow-[0_30px_80px_rgba(77,67,56,0.22)]"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Jump to date"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#b1a394]">
+                  Jump to date
+                </p>
+                <h2 className="mt-1 font-[Georgia,serif] text-2xl font-semibold text-[#4d4338]">
+                  Type a date to jump
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeDatePicker}
+                className="rounded-full border border-[#ddd1c2] bg-white p-2 text-[#6c6257] transition hover:bg-[#f6efe6]"
+                aria-label="Close date picker"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 rounded-2xl border border-[#e7dbcd] bg-white p-3">
+              <label className="block text-[10px] font-bold uppercase tracking-[0.18em] text-[#b1a394]">
+                Date input
+              </label>
+              <input
+                type="date"
+                value={typedDate}
+                onChange={(event) => setTypedDate(event.target.value)}
+                className="w-full rounded-xl border border-[#e3d6c7] bg-[#fffdf8] px-3 py-2 text-sm text-[#4d4338] outline-none transition focus:border-[#c7b7a6] focus:ring-2 focus:ring-[#e8dccd]"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const todayKey = formatKey(now);
+                    setTypedDate(todayKey);
+                    setSelectedDateKey(todayKey);
+                    setViewYear(now.getFullYear());
+                    setViewMonth(now.getMonth());
+                    setIsDatePickerOpen(false);
+                  }}
+                  className="rounded-full border border-[#dac9ef] bg-[#fffafc] px-3 py-1.5 text-xs font-semibold text-[#5d544a] transition hover:bg-white"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={jumpToTypedDate}
+                  disabled={!typedDate}
+                  className="ml-auto rounded-full bg-[#4d4338] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#3f372f] disabled:cursor-not-allowed disabled:bg-[#cfc4b7]"
+                >
+                  Go to date
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto flex h-full w-full max-w-7xl min-h-0 flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -227,11 +366,22 @@ const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
               {monthLabels[viewMonth]} {viewYear}
             </h1>
             <p className="mt-1 text-sm text-[#8a7f72] md:text-base">
-              {selectedEntry?.description ?? "Autumn leaves and cozy evenings."}
+              {selectedEntry?.description
+                ? stripHtml(selectedEntry.description)
+                : "Autumn leaves and cozy evenings."}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openDatePicker}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#ded3c6] bg-[#fffaf2] text-[#6c6257] shadow-[0_6px_18px_rgba(77,67,56,0.06)] transition hover:bg-[#f6efe6]"
+              aria-label="Open date picker"
+            >
+              <CalendarIcon className="h-4 w-4" />
+            </button>
+
             <div className="flex items-center gap-1 rounded-2xl border border-[#ddd1c2] bg-[#fffaf3] p-1 shadow-[0_6px_20px_rgba(77,67,56,0.06)]">
               <button
                 type="button"
@@ -285,12 +435,14 @@ const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
               const isSelected = key === selectedDateKey;
               const entry = entries.find((item) => item.date === key);
               const isToday = key === formatKey(today);
+              const entryPreview = entry ? stripHtml(entry.description) : "";
 
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => openDiary(date)}
+                  onClick={() => setSelectedDateKey(formatKey(date))}
+                  onDoubleClick={() => openDiary(date)}
                   className={[
                     // FIX: Reduced padding slightly (p-1.5 md:p-2) and adjusted border radius to fit better
                     "relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white p-1.5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(77,67,56,0.08)] md:p-2",
@@ -347,7 +499,7 @@ const Calendar = ({ onDiaryModeChange }: CalendarProps) => {
                         {entry.title}
                       </p>
                       <p className="mt-0.5 line-clamp-2 text-[9px] leading-3 text-[#8d7f72] md:text-[10px]">
-                        {entry.description}
+                        {entryPreview}
                       </p>
                     </div>
                   )}
